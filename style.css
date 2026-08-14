@@ -1,0 +1,89 @@
+body {
+    font-family: monospace;
+    background: #f4f4f4;
+    color: #333;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.container {
+    background: white;
+    padding: 20px;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+h1 { margin: 0; }
+h2 { border-bottom: 1px solid #eee; padding-bottom: 5px; }
+
+nav, .tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+
+section {
+    display: none;
+    margin-top: 20px;
+}
+section.active {
+    display: block;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+input, button {
+    padding: 8px;
+    font-family: monospace;
+}
+
+.status-box {
+    margin-top: 15px;
+    padding: 10px;
+    background: #eee;
+    border-left: 4px solid #999;
+    white-space: pre-wrap;
+    word-break: break-all;
+    min-height: 40px;
+}
+
+.jwt-box {
+    margin-top: 20px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    background: #fafafa;
+}
+
+textarea {
+    width: 100%;
+    height: 60px;
+    font-family: monospace;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.jwt-controls {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.jwt-status-inline {
+    font-weight: bold;
+    padding: 10px;
+    background: #eef;
+    border: 1px solid #ccd;
+    display: inline-block;
+}
