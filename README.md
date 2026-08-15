@@ -1,16 +1,61 @@
-# React + Vite
+# Gearly Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Gearly Frontend is a React application built with Vite. It serves as the frontend client for the Gearly platform, featuring authentication and a dashboard for API testing and monitoring.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Authentication**: User login and registration (`LandingAuth`).
+- **Dashboard**: Protected route that allows authenticated users to view logs and test API endpoints.
+- **API Integration**: Connects to the backend via Axios with a structured API service layer.
+- **Modern UI**: Styled with Tailwind CSS/custom CSS and Lucide React icons.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Framework**: [React 19](https://react.dev/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Routing**: [React Router DOM](https://reactrouter.com/)
+- **HTTP Client**: [Axios](https://axios-http.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
 
-## Expanding the Oxlint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+### Prerequisites
+
+- Node.js (v18 or higher recommended)
+- npm or yarn
+
+### Installation
+
+1. Clone the repository and navigate to the project directory:
+   ```bash
+   cd gearly-frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+The application will be available at `http://localhost:5173` (or the port specified by Vite).
+
+### Building for Production
+
+To create a production build, run:
+```bash
+npm run build
+```
+
+This will generate a `dist` folder containing the optimized production files.
+
+## Project Structure
+
+- `src/pages/`: Contains main page components (`LandingAuth`, `Dashboard`).
+- `src/services/`: API service configuration and token management (`api.js`).
+- `src/components/`: Reusable UI components.
+- `src/hooks/`: Custom React hooks.
+- `src/utils/`: Utility functions.
