@@ -36,6 +36,18 @@ Gearly Frontend is a React application built with Vite. It serves as the fronten
    npm install
    ```
 
+### Environment Variables
+
+Create a `.env` file for local development:
+```env
+VITE_API_BASE_URL=http://127.0.0.1:3000
+```
+
+For production builds, the app automatically uses `.env.production` which points to the live backend:
+```env
+VITE_API_BASE_URL=https://gearly-login.onrender.com
+```
+
 3. Start the development server:
    ```bash
    npm run dev
