@@ -25,14 +25,16 @@ apiClient.interceptors.request.use(
 
 export const setToken = (token) => {
   localStorage.setItem('jwt_token', token);
+  localStorage.setItem('gearly_token', token);
 };
 
 export const getToken = () => {
-  return localStorage.getItem('jwt_token');
+  return localStorage.getItem('jwt_token') || localStorage.getItem('gearly_token');
 };
 
 export const clearToken = () => {
   localStorage.removeItem('jwt_token');
+  localStorage.removeItem('gearly_token');
 };
 
 // API Methods

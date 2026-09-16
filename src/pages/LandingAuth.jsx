@@ -11,7 +11,15 @@ export default function LandingAuth() {
   // Form states
   const [loginForm, setLoginForm] = useState({ username_or_email: '', password: '' });
   const [signupForm, setSignupForm] = useState({
-    first_name: '', username: '', email: '', phone_number: '', password: '', shop_name: ''
+    first_name: '',
+    last_name: '',
+    username: '',
+    email: '',
+    phone_number: '',
+    password: '',
+    shop_name: '',
+    shop_address: '',
+    city: ''
   });
 
   const [loading, setLoading] = useState(false);
@@ -34,7 +42,13 @@ export default function LandingAuth() {
         setError('Login succeeded but token format is invalid.');
       }
     } catch (err) {
-      setError(err.response?.data || err.message || 'Login failed');
+      if (err.message === 'Network Error') {
+        setError('Network Error: Unable to reach the server. This is often caused by missing CORS headers on the backend or the server being offline.');
+      } else {
+        const errorData = err.response?.data;
+        const errMsg = errorData?.error || errorData?.message || errorData || err.message || 'Login failed';
+        setError(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+      }
     } finally {
       setLoading(false);
     }
@@ -48,6 +62,7 @@ export default function LandingAuth() {
       if (signupRole === 'user') {
         await authApi.signupUser({
           first_name: signupForm.first_name,
+          last_name: signupForm.last_name,
           username: signupForm.username,
           email: signupForm.email,
           phone_number: signupForm.phone_number,
@@ -55,18 +70,28 @@ export default function LandingAuth() {
         });
       } else {
         await authApi.signupShopkeeper({
-          shop_name: signupForm.shop_name,
+          first_name: signupForm.first_name || null,
+          last_name: signupForm.last_name,
           username: signupForm.username,
-          email: signupForm.email,
-          phone_number: signupForm.phone_number,
-          password: signupForm.password,
+          email: signupForm.email || null,
+          phone_number: signupForm.phone_number || null,
+          password: signupForm.password || null,
+          shop_name: signupForm.shop_name || null,
+          shop_address: signupForm.shop_address || null,
+          city: signupForm.city || null,
         });
       }
       // Switch back to login on success
       setActiveTab('login');
       setError('Account created successfully! Please log in.');
     } catch (err) {
-      setError(err.response?.data || err.message || 'Signup failed');
+      if (err.message === 'Network Error') {
+        setError('Network Error: Unable to reach the server. This is often caused by missing CORS headers on the backend or the server being offline.');
+      } else {
+        const errorData = err.response?.data;
+        const errMsg = errorData?.error || errorData?.message || errorData || err.message || 'Signup failed';
+        setError(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+      }
     } finally {
       setLoading(false);
     }
@@ -177,16 +202,34 @@ export default function LandingAuth() {
                 </div>
               </div>
 
-              {signupRole === 'user' ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label>First Name</label>
-                  <input type="text" required value={signupForm.first_name} onChange={(e) => setSignupForm({...signupForm, first_name: e.target.value})} />
+                  <input type="text" value={signupForm.first_name} onChange={(e) => setSignupForm({...signupForm, first_name: e.target.value})} placeholder="John" required={signupRole === 'user'} />
                 </div>
-              ) : (
                 <div>
-                  <label>Shop Name</label>
-                  <input type="text" required value={signupForm.shop_name} onChange={(e) => setSignupForm({...signupForm, shop_name: e.target.value})} />
+                  <label>Last Name *</label>
+                  <input type="text" required value={signupForm.last_name} onChange={(e) => setSignupForm({...signupForm, last_name: e.target.value})} placeholder="Doe" />
                 </div>
+              </div>
+
+              {signupRole === 'shopkeeper' && (
+                <>
+                  <div>
+                    <label>Shop Name</label>
+                    <input type="text" value={signupForm.shop_name} onChange={(e) => setSignupForm({...signupForm, shop_name: e.target.value})} placeholder="e.g. Apex Auto Spares" />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div>
+                      <label>Shop Address</label>
+                      <input type="text" value={signupForm.shop_address} onChange={(e) => setSignupForm({...signupForm, shop_address: e.target.value})} placeholder="123 Main St" />
+                    </div>
+                    <div>
+                      <label>City</label>
+                      <input type="text" value={signupForm.city} onChange={(e) => setSignupForm({...signupForm, city: e.target.value})} placeholder="Mohali" />
+                    </div>
+                  </div>
+                </>
               )}
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

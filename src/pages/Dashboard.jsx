@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Copy, RefreshCw, CheckCircle, XCircle, ShieldAlert, Key } from 'lucide-react';
+import { LogOut, Copy, RefreshCw, CheckCircle, XCircle, ShieldAlert, Key, Package, ExternalLink } from 'lucide-react';
 import { authApi, getToken, clearToken } from '../services/api';
 
 export default function Dashboard() {
@@ -129,6 +129,27 @@ export default function Dashboard() {
                 Clear Token
               </button>
             </div>
+          </div>
+
+          {/* CARD 3: Linked Microservice - Products App */}
+          <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <Package size={20} className="text-gradient" /> Products Microservice
+              </h3>
+              <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
+                Manage parts inventory in the dedicated Gearly Products microservice.
+              </p>
+            </div>
+            <a 
+              href={`http://localhost:5173/?token=${encodeURIComponent(token || '')}`}
+              target="_blank" 
+              rel="noreferrer"
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', textDecoration: 'none' }}
+            >
+              Open Products App <ExternalLink size={16} />
+            </a>
           </div>
           
         </div>
