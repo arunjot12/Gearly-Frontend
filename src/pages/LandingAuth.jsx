@@ -35,9 +35,9 @@ export default function LandingAuth() {
       // Axum returns raw JSON string for JWT
       let token = res.data;
       if (typeof token === 'string') {
-        token = token.replace(/^"|"$/g, ''); // strip quotes if any
         setToken(token);
-        navigate('/dashboard');
+        const productAppUrl = import.meta.env.VITE_PRODUCT_FRONTEND_URL || 'http://localhost:5173';
+        window.location.href = `${productAppUrl}/?token=${encodeURIComponent(token)}`;
       } else {
         setError('Login succeeded but token format is invalid.');
       }
