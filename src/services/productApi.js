@@ -25,18 +25,32 @@ productClient.interceptors.request.use(
 );
 
 export const productApi = {
-  getProducts: async () => {
-    return await productClient.get('/get_products');
+  // Public Marketplace Catalog (No JWT required or Customer browse)
+  getPublicProducts: async ({ limit = 20, offset = 0 } = {}) => {
+    return await productClient.get('/products/public', {
+      params: { limit, offset }
+    });
   },
+
+  // Shopkeeper Store Inventory (Requires JWT with shopkeeper role)
+  getProducts: async ({ limit = 20, offset = 0 } = {}) => {
+    return await productClient.get('/get_products', {
+      params: { limit, offset }
+    });
+  },
+
   getProductById: async (id) => {
     return await productClient.get(`/get_product/${id}`);
   },
+
   createProduct: async (productData) => {
     return await productClient.post('/create_product', productData);
   },
+
   updateProduct: async (id, productData) => {
     return await productClient.put(`/update_product/${id}`, productData);
   },
+
   deleteProduct: async (id) => {
     return await productClient.post(`/delete_product/${id}`);
   },
