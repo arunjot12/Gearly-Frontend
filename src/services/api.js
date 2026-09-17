@@ -48,6 +48,9 @@ export const authApi = {
   loginUser: async (payload) => {
     return await apiClient.post('/login_user', payload);
   },
+  loginShopkeeper: async (payload) => {
+    return await apiClient.post('/login_shopkeeper', payload);
+  },
   getDashboard: async (customConfig = {}) => {
     // customConfig allows us to override headers for testing (e.g. removing the token)
     return await apiClient.get('/dashboard', customConfig);

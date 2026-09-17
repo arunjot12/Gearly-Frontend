@@ -5,6 +5,7 @@ import { authApi, setToken } from '../services/api';
 
 export default function LandingAuth() {
   const [activeTab, setActiveTab] = useState('login'); // 'login' or 'signup'
+  const [loginRole, setLoginRole] = useState('user'); // 'user' or 'shopkeeper'
   const [signupRole, setSignupRole] = useState('user'); // 'user' or 'shopkeeper'
   const navigate = useNavigate();
 
@@ -31,7 +32,9 @@ export default function LandingAuth() {
     setLoading(true);
     setError(null);
     try {
-      const res = await authApi.loginUser(loginForm);
+      const res = loginRole === 'shopkeeper'
+        ? await authApi.loginShopkeeper(loginForm)
+        : await authApi.loginUser(loginForm);
       // Axum returns raw JSON string for JWT
       let token = res.data;
       if (typeof token === 'string') {
@@ -155,6 +158,27 @@ export default function LandingAuth() {
 
           {activeTab === 'login' ? (
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.25rem' }}>
+                <div 
+                  onClick={() => setLoginRole('user')}
+                  className={`glass-panel ${loginRole === 'user' ? 'btn-primary' : ''}`}
+                  style={{ flex: 1, padding: '0.85rem', textAlign: 'center', cursor: 'pointer', transition: 'var(--transition)', border: loginRole === 'user' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)' }}
+                >
+                  <div style={{ fontSize: '1.3rem', marginBottom: '0.3rem' }}>👤</div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Customer</strong>
+                  <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>Login as user</span>
+                </div>
+                <div 
+                  onClick={() => setLoginRole('shopkeeper')}
+                  className={`glass-panel ${loginRole === 'shopkeeper' ? 'btn-primary' : ''}`}
+                  style={{ flex: 1, padding: '0.85rem', textAlign: 'center', cursor: 'pointer', transition: 'var(--transition)', border: loginRole === 'shopkeeper' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)' }}
+                >
+                  <div style={{ fontSize: '1.3rem', marginBottom: '0.3rem' }}>🏪</div>
+                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Shopkeeper</strong>
+                  <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>Manage inventory</span>
+                </div>
+              </div>
+
               <div>
                 <label>Email or Username</label>
                 <input 
