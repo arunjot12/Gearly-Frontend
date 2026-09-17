@@ -10,7 +10,7 @@ const productClient = axios.create({
   },
 });
 
-// Request interceptor: dynamically attach JWT token from login
+// Request interceptor: attach JWT token dynamically from localStorage
 productClient.interceptors.request.use(
   (config) => {
     const token = getToken();
@@ -19,31 +19,24 @@ productClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
 export const productApi = {
-  // GET /get_products
   getProducts: async () => {
     return await productClient.get('/get_products');
   },
-
-  // GET /get_product/:id
-  getProduct: async (id) => {
+  getProductById: async (id) => {
     return await productClient.get(`/get_product/${id}`);
   },
-
-  // POST /create_product
   createProduct: async (productData) => {
     return await productClient.post('/create_product', productData);
   },
-
-  // PUT /update_product/:id
   updateProduct: async (id, productData) => {
     return await productClient.put(`/update_product/${id}`, productData);
   },
-
-  // POST /delete_product/:id
   deleteProduct: async (id) => {
     return await productClient.post(`/delete_product/${id}`);
   },

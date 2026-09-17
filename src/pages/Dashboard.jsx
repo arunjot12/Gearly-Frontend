@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  LogOut, Copy, RefreshCw, CheckCircle, XCircle, ShieldAlert, Key, 
-  Package, Plus, Search, Edit3, Trash2, Layers, DollarSign, AlertCircle, X, Check
+  LogOut, Copy, RefreshCw, CheckCircle, XCircle, ShieldCheck, Key, 
+  Package, Plus, Search, Edit3, Trash2, Layers, DollarSign, AlertCircle, X,
+  UserCheck, ShieldAlert, Cpu
 } from 'lucide-react';
 import { authApi, getToken, clearToken } from '../services/api';
 import { productApi } from '../services/productApi';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [token, setToken] = useState(getToken());
+  const [token] = useState(getToken());
   
-  // Tabs: 'products' (default) or 'security'
+  // Navigation Tabs: 'products' | 'security'
   const [activeTab, setActiveTab] = useState('products');
 
   // Products State
@@ -22,7 +23,7 @@ export default function Dashboard() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
+  const [modalMode, setModalMode] = useState('create'); // 'create' | 'edit'
   const [currentEditId, setCurrentEditId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [productForm, setProductForm] = useState({
@@ -35,6 +36,7 @@ export default function Dashboard() {
   // Security Test State
   const [logs, setLogs] = useState([]);
   const [testResult, setTestResult] = useState(null);
+  const [testing, setTesting] = useState(false);
 
   // Parse JWT claims
   const claims = useMemo(() => {
@@ -49,22 +51,22 @@ export default function Dashboard() {
     }
   }, [token]);
 
-  // Load products on mount
-  useEffect(() => {
-    if (token) {
-      fetchProducts();
-    }
-  }, [token]);
-
   const showToast = (text, type = 'success') => {
     setStatusMessage({ type, text });
-    setTimeout(() => setStatusMessage(null), 5000);
+    setTimeout(() => setStatusMessage(null), 4000);
   };
 
   const handleLogout = () => {
     clearToken();
     navigate('/');
   };
+
+  // Load products on mount
+  useEffect(() => {
+    if (token) {
+      fetchProducts();
+    }
+  }, [token]);
 
   // --- Product API Actions ---
   const fetchProducts = async () => {
@@ -78,7 +80,7 @@ export default function Dashboard() {
         setTimeout(() => handleLogout(), 2000);
       } else {
         showToast(
-          err.response?.data?.message || err.message || 'Failed to connect to gearly-product on port 3000.',
+          err.response?.data?.message || err.message || 'Failed to connect to gearly-product backend on port 3000.',
           'error'
         );
       }
@@ -178,7 +180,7 @@ export default function Dashboard() {
     );
   }, [products, searchQuery]);
 
-  // Inventory stats
+  // Inventory KPI statistics
   const totalValue = useMemo(() => {
     return products.reduce((sum, p) => sum + (Number(p.price) || 0), 0);
   }, [products]);
@@ -224,18 +226,33 @@ export default function Dashboard() {
   };
 
   const testWithJwt = async () => {
+    setTesting(true);
     setTestResult(null);
-    const result = await executeApiAndLog('GET', '/dashboard', () => authApi.getDashboard());
+    const result = await executeApiAndLog('GET', 'gearly-login :8000/dashboard', () => authApi.getDashboard());
     setTestResult({ type: 'with-jwt', ...result });
+    setTesting(false);
   };
 
   const testWithoutJwt = async () => {
+    setTesting(true);
     setTestResult(null);
-    const result = await executeApiAndLog('GET', '/dashboard', () => 
+    const result = await executeApiAndLog('GET', 'gearly-login :8000/dashboard', () => 
       authApi.getDashboard({ headers: { Authorization: '' } })
     );
     setTestResult({ type: 'without-jwt', ...result });
+    setTesting(false);
   };
+
+  const testProductsService = async () => {
+    setTesting(true);
+    setTestResult(null);
+    const result = await executeApiAndLog('GET', 'gearly-product :3000/get_products', () => productApi.getProducts());
+    setTestResult({ type: 'product-svc', ...result });
+    setTesting(false);
+  };
+
+  const userRole = claims?.roles || 'Shopkeeper';
+  const userName = claims?.sub ? `Account #${claims.sub}` : 'Shopkeeper';
 
   return (
     <div style={{ minHeight: '100vh', paddingBottom: '80px', display: 'flex', flexDirection: 'column' }}>
@@ -246,183 +263,212 @@ export default function Dashboard() {
           <h1 style={{ fontSize: '1.4rem', margin: 0, letterSpacing: '2px', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <span className="text-gradient" style={{ fontWeight: 800 }}>GEARLY</span>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-color)', paddingLeft: '0.8rem' }}>
-              Microservice Portal
+              Unified Portal
             </span>
           </h1>
 
-          {/* Navigation Tabs */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }}>
+          <nav style={{ display: 'flex', gap: '0.5rem' }}>
             <button 
-              onClick={() => setActiveTab('products')}
-              className={`btn ${activeTab === 'products' ? 'btn-primary' : 'btn-outline'}`}
-              style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              onClick={() => setActiveTab('products')} 
+              className={activeTab === 'products' ? 'btn-primary' : 'btn-ghost'}
+              style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <Package size={16} /> Products Catalog
+              <Package size={16} />
+              <span>Inventory</span>
             </button>
             <button 
-              onClick={() => setActiveTab('security')}
-              className={`btn ${activeTab === 'security' ? 'btn-primary' : 'btn-outline'}`}
-              style={{ padding: '0.4rem 0.9rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              onClick={() => setActiveTab('security')} 
+              className={activeTab === 'security' ? 'btn-primary' : 'btn-ghost'}
+              style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
             >
-              <Key size={16} /> Token & Security
+              <ShieldCheck size={16} />
+              <span>Auth & Security</span>
             </button>
-          </div>
+          </nav>
         </div>
 
         {/* User Profile & Logout */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: token ? 'var(--success)' : 'var(--danger)' }}></span>
-            <span style={{ color: 'var(--text-muted)' }}>
-              {claims?.roles ? `${claims.roles.toUpperCase()} #${claims.sub}` : 'Authenticated'}
-            </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+            <img 
+              src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=3b82f6&color=fff`} 
+              alt="Avatar" 
+              style={{ width: '32px', height: '32px', borderRadius: '50%' }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{userName}</span>
+              <span style={{ 
+                fontSize: '0.7rem', 
+                color: userRole.toLowerCase() === 'shopkeeper' ? '#60a5fa' : '#34d399', 
+                fontWeight: 600, 
+                textTransform: 'uppercase' 
+              }}>
+                {userRole}
+              </span>
+            </div>
           </div>
-          <button onClick={handleLogout} className="btn btn-outline" style={{ padding: '0.45rem 0.9rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <LogOut size={16} /> Log out
+
+          <button 
+            onClick={handleLogout} 
+            className="btn-ghost" 
+            style={{ padding: '0.45rem 0.8rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--danger-color)' }}
+          >
+            <LogOut size={16} />
+            <span>Sign Out</span>
           </button>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="container" style={{ marginTop: '2rem', flexGrow: 1 }}>
+      <main style={{ maxWidth: '1200px', width: '100%', margin: '2rem auto', padding: '0 1.5rem', flex: 1 }}>
 
-        {/* Toast / Notification Banner */}
+        {/* Toast Notification Banner */}
         {statusMessage && (
-          <div 
-            className={`glass-panel animate-slide-up ${statusMessage.type === 'success' ? 'bg-success' : 'bg-danger'}`} 
-            style={{ padding: '0.9rem 1.2rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderRadius: '8px' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem' }}>
-              {statusMessage.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
-              <span>{statusMessage.text}</span>
-            </div>
-            <button onClick={() => setStatusMessage(null)} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}>
-              <X size={16} />
-            </button>
+          <div style={{
+            padding: '1rem 1.5rem',
+            borderRadius: '12px',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.8rem',
+            background: statusMessage.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            border: `1px solid ${statusMessage.type === 'success' ? 'var(--accent-color)' : 'var(--danger-color)'}`,
+            color: statusMessage.type === 'success' ? '#34d399' : '#f87171',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            {statusMessage.type === 'success' ? <CheckCircle size={18} /> : <XCircle size={18} />}
+            <span style={{ fontSize: '0.95rem', fontWeight: 500 }}>{statusMessage.text}</span>
           </div>
         )}
 
-        {/* --- VIEW 1: PRODUCTS CATALOG MANAGEMENT --- */}
+        {/* ==================================================================== */}
+        {/* TAB 1: PRODUCTS INVENTORY MANAGEMENT */}
+        {/* ==================================================================== */}
         {activeTab === 'products' && (
-          <div>
-            {/* KPI Metrics Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.2rem', marginBottom: '2rem' }}>
-              <div className="glass-panel" style={{ padding: '1.2rem' }}>
-                <span className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Products</span>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                  <h2 style={{ fontSize: '1.8rem', margin: 0 }}>{products.length}</h2>
-                  <Package size={28} className="text-gradient" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            
+            {/* KPI Metric Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.2rem' }}>
+              <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#60a5fa' }}>
+                  <Package size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Total Parts</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 700 }}>{products.length}</div>
                 </div>
               </div>
 
-              <div className="glass-panel" style={{ padding: '1.2rem' }}>
-                <span className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Catalog Total Value</span>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                  <h2 style={{ fontSize: '1.8rem', margin: 0 }}>₹{totalValue.toLocaleString()}</h2>
-                  <DollarSign size={28} className="text-gradient" />
+              <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#34d399' }}>
+                  <DollarSign size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Total Inventory Value</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 700 }}>₹{totalValue.toLocaleString('en-IN')}</div>
                 </div>
               </div>
 
-              <div className="glass-panel" style={{ padding: '1.2rem' }}>
-                <span className="text-muted" style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Avg Part Price</span>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-                  <h2 style={{ fontSize: '1.8rem', margin: 0 }}>₹{avgPrice.toLocaleString()}</h2>
-                  <Layers size={28} className="text-gradient" />
+              <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(236, 72, 153, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f472b6' }}>
+                  <Layers size={24} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Average Price</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 700 }}>₹{avgPrice.toLocaleString('en-IN')}</div>
                 </div>
               </div>
             </div>
 
             {/* Controls Bar: Search & Add Product */}
-            <div className="glass-panel" style={{ padding: '1.2rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <div style={{ position: 'relative', flexGrow: 1, maxWidth: '450px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ position: 'relative', flex: '1 1 300px', maxWidth: '450px' }}>
                 <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input 
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search products by name, part number, description..."
-                  style={{ paddingLeft: '2.8rem' }}
+                  placeholder="Search parts by name, code, or specs..."
+                  style={{ width: '100%', paddingLeft: '2.8rem' }}
                 />
               </div>
 
               <div style={{ display: 'flex', gap: '0.8rem' }}>
                 <button 
                   onClick={fetchProducts} 
-                  className="btn btn-outline" 
                   disabled={loadingProducts}
-                  title="Reload inventory from gearly-product backend"
-                >
-                  <RefreshCw size={16} className={loadingProducts ? 'animate-spin' : ''} /> Refresh
-                </button>
-                <button 
-                  onClick={openCreateModal} 
-                  className="btn btn-primary"
+                  className="btn-ghost" 
                   style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                 >
-                  <Plus size={18} /> Add New Product
+                  <RefreshCw size={16} className={loadingProducts ? 'animate-spin' : ''} />
+                  <span>Refresh</span>
+                </button>
+
+                <button 
+                  onClick={openCreateModal} 
+                  className="btn-primary" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Plus size={18} />
+                  <span>Add New Product</span>
                 </button>
               </div>
             </div>
 
             {/* Products Grid */}
-            {loadingProducts ? (
+            {loadingProducts && products.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '4rem 0', color: 'var(--text-muted)' }}>
-                <RefreshCw size={32} className="animate-spin" style={{ margin: '0 auto 1rem', display: 'block' }} />
-                <p>Connecting to <code>gearly-product</code> microservice...</p>
+                <RefreshCw size={32} className="animate-spin" style={{ margin: '0 auto 1rem auto', color: 'var(--primary-color)' }} />
+                <p>Connecting to gearly-product backend on port 3000...</p>
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="glass-panel" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
-                <Package size={48} className="text-muted" style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-                <h3>No Products Found</h3>
-                <p className="text-muted" style={{ maxWidth: '400px', margin: '0.5rem auto 1.5rem' }}>
-                  {searchQuery ? `No products match your search "${searchQuery}".` : 'You haven\'t added any products to your catalog yet.'}
-                </p>
-                <button onClick={openCreateModal} className="btn btn-primary">
-                  <Plus size={16} /> Create Your First Product
+              <div className="glass-panel" style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-muted)' }}>
+                <Package size={48} style={{ margin: '0 auto 1rem auto', opacity: 0.3 }} />
+                <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>No products in inventory</h3>
+                <p style={{ margin: '0 0 1.5rem 0' }}>Register your automotive spare parts to get started.</p>
+                <button onClick={openCreateModal} className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Plus size={16} />
+                  <span>Add First Product</span>
                 </button>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                {filteredProducts.map((p) => (
-                  <div key={p.id} className="glass-panel glass-panel-hover" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative' }}>
+                {filteredProducts.map(product => (
+                  <div key={product.id} className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', transition: 'all 0.2s ease' }}>
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
-                        <div>
-                          <h3 style={{ margin: 0, fontSize: '1.15rem' }}>{p.name}</h3>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', marginTop: '4px' }}>
-                            {p.part_number}
-                          </span>
-                        </div>
-                        <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--success)' }}>
-                          ₹{Number(p.price).toLocaleString()}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem', gap: '0.5rem' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600 }}>{product.name}</h3>
+                        <span style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, fontFamily: 'monospace' }}>
+                          {product.part_number}
                         </span>
                       </div>
+                      
+                      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--accent-color)', marginBottom: '0.8rem' }}>
+                        ₹{Number(product.price).toLocaleString('en-IN')}
+                      </div>
 
-                      <p className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.5rem', minHeight: '40px', lineHeight: 1.4 }}>
-                        {p.descri}
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0, lineHeight: 1.5, minHeight: '40px' }}>
+                        {product.descri || 'No description provided.'}
                       </p>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: 'auto' }}>
-                      <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                        ID: #{p.id} • Shop #{p.shopkeeper_id}
-                      </span>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button 
-                          onClick={() => openEditModal(p)}
-                          className="btn btn-outline" 
-                          style={{ padding: '0.35rem 0.7rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                        >
-                          <Edit3 size={14} /> Edit
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteProduct(p.id, p.name)}
-                          className="btn btn-outline" 
-                          style={{ padding: '0.35rem 0.7rem', fontSize: '0.8rem', color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.3)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                        >
-                          <Trash2 size={14} /> Delete
-                        </button>
-                      </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
+                      <button 
+                        onClick={() => openEditModal(product)} 
+                        className="btn-ghost" 
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                      >
+                        <Edit3 size={14} />
+                        <span>Edit</span>
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteProduct(product.id, product.name)} 
+                        className="btn-ghost" 
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--danger-color)' }}
+                      >
+                        <Trash2 size={14} />
+                        <span>Delete</span>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -431,94 +477,202 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* --- VIEW 2: JWT & SECURITY INSPECTOR --- */}
+        {/* ==================================================================== */}
+        {/* TAB 2: SECURITY & MICROSERVICES VERIFICATION */}
+        {/* ==================================================================== */}
         {activeTab === 'security' && (
-          <div className="animate-slide-up">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            
+            {/* Identity & JWT Details Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
               
-              {/* CARD: Auth Status & Claims */}
-              <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <ShieldAlert size={20} className="text-gradient" /> Verified JWT Claims
+              {/* Claims Card */}
+              <div className="glass-panel" style={{ padding: '1.8rem' }}>
+                <h3 style={{ fontSize: '1.1rem', margin: '0 0 1.2rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <UserCheck size={20} color="var(--accent-color)" />
+                  <span>Decoded Identity Claims</span>
                 </h3>
-                <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: 1.6 }}>
-                  <div><strong>Subject (User ID):</strong> {claims?.sub || 'N/A'}</div>
-                  <div><strong>Role:</strong> {claims?.roles || 'N/A'}</div>
-                  <div><strong>Issued At:</strong> {claims?.iat ? new Date(claims.iat * 1000).toLocaleString() : 'N/A'}</div>
-                  <div><strong>Expires:</strong> {claims?.exp ? new Date(claims.exp * 1000).toLocaleString() : 'N/A'}</div>
-                </div>
+
+                {claims ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Subject (User ID)</span>
+                      <span style={{ fontWeight: 600, color: 'var(--primary-color)' }}>{claims.sub}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Assigned Role</span>
+                      <span style={{ 
+                        padding: '2px 8px', 
+                        borderRadius: '6px', 
+                        fontSize: '0.8rem', 
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        background: claims.roles === 'shopkeeper' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                        color: claims.roles === 'shopkeeper' ? '#60a5fa' : '#34d399'
+                      }}>
+                        {claims.roles || 'USER'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Issued At (iat)</span>
+                      <span style={{ fontSize: '0.85rem' }}>{claims.iat ? new Date(claims.iat * 1000).toLocaleTimeString() : 'N/A'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.6rem 0' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Expires (exp)</span>
+                      <span style={{ fontSize: '0.85rem', color: claims.exp * 1000 > Date.now() ? 'var(--accent-color)' : 'var(--danger-color)' }}>
+                        {claims.exp ? new Date(claims.exp * 1000).toLocaleTimeString() : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p style={{ color: 'var(--text-muted)' }}>No claims found.</p>
+                )}
               </div>
 
-              {/* CARD: Raw JWT Token */}
-              <div className="glass-panel" style={{ padding: '1.5rem' }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <Key size={20} className="text-gradient" /> Current JWT String
-                </h3>
-                <div className="code-block" style={{ height: '80px', marginBottom: '1rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: '0.8rem' }}>
-                  {token || 'No token found...'}
+              {/* Raw Token Card */}
+              <div className="glass-panel" style={{ padding: '1.8rem', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Key size={18} color="var(--primary-color)" />
+                    <span>Active JWT Token</span>
+                  </h3>
+                  <button 
+                    onClick={copyToken} 
+                    className="btn-ghost" 
+                    style={{ padding: '4px 8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Copy size={14} />
+                    <span>Copy</span>
+                  </button>
                 </div>
-                <button onClick={copyToken} className="btn btn-outline" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <Copy size={16} /> Copy Token for cURL Testing
-                </button>
+
+                <div style={{ 
+                  background: 'rgba(0, 0, 0, 0.3)', 
+                  padding: '1rem', 
+                  borderRadius: '8px', 
+                  border: '1px solid var(--border-color)',
+                  wordBreak: 'break-all',
+                  fontFamily: 'monospace',
+                  fontSize: '0.75rem',
+                  color: 'var(--text-muted)',
+                  flex: 1,
+                  maxHeight: '140px',
+                  overflowY: 'auto',
+                  lineHeight: 1.5
+                }}>
+                  {token}
+                </div>
+
+                <p style={{ margin: '0.8rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  This token is passed as an <code style={{ color: 'var(--accent-color)' }}>Authorization: Bearer &lt;token&gt;</code> header to both <code style={{ color: '#60a5fa' }}>gearly-login</code> (8000) and <code style={{ color: '#34d399' }}>gearly-product</code> (3000).
+                </p>
               </div>
             </div>
 
-            {/* Test Protected API Panel */}
-            <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
-              <h2 style={{ marginBottom: '0.5rem' }}>Axum Middleware Verification Test</h2>
-              <p className="text-muted" style={{ marginBottom: '1.5rem' }}>
-                Verify that your Rust backend actively accepts the valid JWT and rejects unauthenticated requests.
+            {/* Backend Verification Triggers */}
+            <section className="glass-panel" style={{ padding: '2rem' }}>
+              <h3 style={{ fontSize: '1.15rem', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Cpu size={20} color="var(--primary-color)" />
+                <span>Microservice API Verifiers</span>
+              </h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0 0 1.5rem 0' }}>
+                Directly ping both Rust backend microservices to test authentication layers and latency.
               </p>
-              
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                <button onClick={testWithJwt} className="btn btn-primary" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <CheckCircle size={18} /> Test GET /dashboard With JWT
+
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+                <button 
+                  onClick={testWithJwt} 
+                  disabled={testing}
+                  className="btn-primary" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}
+                >
+                  <ShieldCheck size={16} />
+                  <span>Test Auth Backend (gearly-login :8000)</span>
                 </button>
-                <button onClick={testWithoutJwt} className="btn btn-outline" style={{ flex: 1, borderColor: 'rgba(239, 68, 68, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <XCircle size={18} className="status-danger" /> Test Without JWT
+
+                <button 
+                  onClick={testProductsService} 
+                  disabled={testing}
+                  className="btn-primary" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                >
+                  <Package size={16} />
+                  <span>Test Products Backend (gearly-product :3000)</span>
+                </button>
+
+                <button 
+                  onClick={testWithoutJwt} 
+                  disabled={testing}
+                  className="btn-ghost" 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', border: '1px solid rgba(239, 68, 68, 0.4)', color: 'var(--danger-color)' }}
+                >
+                  <ShieldAlert size={16} />
+                  <span>Test Without Token &rarr; Expect 401</span>
                 </button>
               </div>
 
+              {/* Test Result Box */}
               {testResult && (
-                <div className="code-block animate-slide-up" style={{ padding: '1.5rem', background: 'var(--bg-panel-solid)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-color)' }}>
-                    <strong>{testResult.type === 'with-jwt' ? 'TEST WITH JWT' : 'TEST WITHOUT JWT'}</strong>
-                    <span className={testResult.success ? 'status-success' : 'status-danger'}>
-                      {testResult.success ? '🟢 Access Granted' : '🔴 Access Denied'}
+                <div style={{
+                  background: testResult.success ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                  border: `1px solid ${testResult.success ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  borderRadius: '8px',
+                  padding: '1rem 1.2rem',
+                  marginBottom: '1.5rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, color: testResult.success ? 'var(--accent-color)' : 'var(--danger-color)', marginBottom: '0.4rem', fontSize: '0.9rem' }}>
+                    {testResult.success ? <CheckCircle size={16} /> : <XCircle size={16} />}
+                    <span>
+                      {testResult.type === 'without-jwt'
+                        ? (testResult.status === 401 ? 'PASS: Backend successfully rejected missing token with 401 Unauthorized' : `Status: ${testResult.status}`)
+                        : (testResult.success ? `PASS: Response 200 OK (${testResult.status})` : `FAIL: Error ${testResult.status}`)}
                     </span>
                   </div>
-                  
-                  <div style={{ fontFamily: 'monospace', lineHeight: 1.6, fontSize: '0.85rem' }}>
-                    <div><span className="text-muted">Request:</span> GET /dashboard</div>
-                    <div><span className="text-muted">Authorization:</span> {testResult.type === 'with-jwt' ? `Bearer ${token?.substring(0, 15)}...` : 'None'}</div>
-                    <br />
-                    <div>
-                      <span className="text-muted">Result: </span> 
-                      <span style={{ color: testResult.success ? 'var(--success)' : 'var(--danger)' }}>
-                        {testResult.success ? '🟢 200 OK' : `🔴 ${testResult.status} Unauthorized`}
-                      </span>
-                    </div>
-                    <br />
-                    <div className="text-muted">Raw Backend Response:</div>
-                    <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', marginTop: '0.5rem' }}>
-                      {typeof testResult.data === 'string' ? testResult.data : JSON.stringify(testResult.data, null, 2)}
-                    </div>
+                  <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {typeof testResult.data === 'string' ? testResult.data : JSON.stringify(testResult.data, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* Live Activity Logs */}
+              {logs.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>
+                    Recent Microservice Requests
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {logs.map(log => (
+                      <div key={log.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.8rem', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', fontSize: '0.82rem', fontFamily: 'monospace' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{log.timestamp}</span>
+                          <span style={{ fontWeight: 600, color: 'var(--primary-color)' }}>{log.method}</span>
+                          <span>{log.endpoint}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                          <span style={{ color: log.status === 200 ? 'var(--accent-color)' : 'var(--danger-color)', fontWeight: 600 }}>
+                            {log.status}
+                          </span>
+                          <span style={{ color: 'var(--text-muted)' }}>{log.timeMs}ms</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
-            </div>
+            </section>
           </div>
         )}
-
       </main>
 
-      {/* --- ADD / EDIT PRODUCT MODAL --- */}
+      {/* ==================================================================== */}
+      {/* ADD / EDIT PRODUCT MODAL */}
+      {/* ==================================================================== */}
       {isModalOpen && (
         <div 
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
+            background: 'rgba(0, 0, 0, 0.75)',
             backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
@@ -588,11 +742,11 @@ export default function Dashboard() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8rem', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                <button type="button" onClick={closeModal} className="btn btn-outline">
+                <button type="button" onClick={closeModal} className="btn-ghost">
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting} style={{ minWidth: '140px' }}>
-                  {submitting ? <span className="animate-spin"><RefreshCw size={16} /></span> : (modalMode === 'create' ? 'Save Product' : 'Update Product')}
+                <button type="submit" className="btn-primary" disabled={submitting} style={{ minWidth: '140px' }}>
+                  {submitting ? <RefreshCw size={16} className="animate-spin" /> : (modalMode === 'create' ? 'Save Product' : 'Update Product')}
                 </button>
               </div>
             </form>

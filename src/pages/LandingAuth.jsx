@@ -36,8 +36,7 @@ export default function LandingAuth() {
       let token = res.data;
       if (typeof token === 'string') {
         setToken(token);
-        const productAppUrl = import.meta.env.VITE_PRODUCT_FRONTEND_URL || 'http://localhost:5173';
-        window.location.href = `${productAppUrl}/?token=${encodeURIComponent(token)}`;
+        navigate('/dashboard');
       } else {
         setError('Login succeeded but token format is invalid.');
       }
