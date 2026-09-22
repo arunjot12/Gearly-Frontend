@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken } from './api';
 
-const PRODUCT_BASE_URL = import.meta.env.VITE_PRODUCT_API_URL || 'http://localhost:3000';
+const PRODUCT_BASE_URL = import.meta.env.VITE_PRODUCT_API_URL || 'https://gearly-product.onrender.com';
 
 const productClient = axios.create({
   baseURL: PRODUCT_BASE_URL,
