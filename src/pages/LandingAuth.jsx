@@ -4,7 +4,7 @@ import {
   ShieldCheck, Activity, Zap, Eye, EyeOff, 
   AlertCircle, CheckCircle, ArrowRight, X, Store, Car
 } from 'lucide-react';
-import { authApi, setToken, getToken } from '../services/api';
+import { authApi, setToken, getToken, getAuthBaseUrl } from '../services/api';
 
 export default function LandingAuth() {
   const [activeTab, setActiveTab] = useState('login'); // 'login' or 'signup'
@@ -50,9 +50,10 @@ export default function LandingAuth() {
   // Comprehensive error parser for Axum & Axios responses
   const parseApiError = (err, defaultMsg = 'Operation failed') => {
     if (err.message === 'Network Error') {
+      const targetUrl = getAuthBaseUrl();
       return {
         title: 'Connection Error',
-        message: 'Unable to reach the authentication service. Please ensure gearly-login is running on port 8000.',
+        message: `Unable to reach the authentication service at ${targetUrl}. Please verify that the backend is active.`,
         isUserExists: false,
       };
     }

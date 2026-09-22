@@ -1,18 +1,42 @@
 import axios from 'axios';
 import { getToken } from './api';
 
-const PRODUCT_BASE_URL = import.meta.env.VITE_PRODUCT_API_URL || 'http://localhost:3000';
+/**
+ * Intelligent runtime & build-time Product API Base URL resolver.
+ * 1. Prioritizes explicit VITE_PRODUCT_API_URL if set during build.
+ * 2. If running in browser on localhost / 127.0.0.1, routes to local port 3000.
+ * 3. On ANY deployed domain (*.onrender.com, Vercel, Netlify, custom domain),
+ *    AUTOMATICALLY routes to production backend 'https://gearly-product.onrender.com'.
+ *    Never defaults to localhost in a deployed environment!
+ */
+export const getProductBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_PRODUCT_API_URL;
+  if (envUrl && envUrl.trim() !== '') {
+    return envUrl.trim();
+  }
+
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+      return 'http://localhost:3000';
+    }
+    return 'https://gearly-product.onrender.com';
+  }
+
+  return import.meta.env.PROD ? 'https://gearly-product.onrender.com' : 'http://localhost:3000';
+};
 
 const productClient = axios.create({
-  baseURL: PRODUCT_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor: attach JWT token dynamically from localStorage
+// Dynamic BaseURL & JWT Interceptor
 productClient.interceptors.request.use(
   (config) => {
+    config.baseURL = getProductBaseUrl();
+
     const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { UserCheck, Key, Copy, Cpu, CheckCircle, XCircle } from 'lucide-react';
-import { authApi } from '../services/api';
-import { productApi } from '../services/productApi';
+import { authApi, getAuthBaseUrl } from '../services/api';
+import { productApi, getProductBaseUrl } from '../services/productApi';
 
 export default function DiagnosticsView({
   token,
@@ -12,6 +12,9 @@ export default function DiagnosticsView({
   const [logs, setLogs] = useState([]);
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
+
+  const authUrl = getAuthBaseUrl();
+  const productUrl = getProductBaseUrl();
 
   const copyToken = () => {
     if (token) {
@@ -172,7 +175,7 @@ export default function DiagnosticsView({
           </div>
 
           <p style={{ margin: '0.8rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-dim)' }}>
-            This token is authenticated via <code style={{ color: 'var(--accent-cyan)' }}>Authorization: Bearer &lt;token&gt;</code> to <code style={{ color: '#60a5fa' }}>gearly-login</code> (:8000) and <code style={{ color: '#34d399' }}>gearly-product</code> (:3000).
+            This token is authenticated via <code style={{ color: 'var(--accent-cyan)' }}>Authorization: Bearer &lt;token&gt;</code> to <code style={{ color: '#60a5fa' }}>{authUrl}</code> and <code style={{ color: '#34d399' }}>{productUrl}</code>.
           </p>
         </div>
       </div>

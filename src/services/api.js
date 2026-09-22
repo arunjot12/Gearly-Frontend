@@ -1,18 +1,42 @@
 import axios from 'axios';
 import { sanitizeToken, decodeJwt, extractRole } from '../utils/jwt';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+/**
+ * Intelligent runtime & build-time API Base URL resolver.
+ * 1. Prioritizes explicit VITE_API_BASE_URL if set during build.
+ * 2. If running in a browser on localhost / 127.0.0.1, routes to local port 8000.
+ * 3. On ANY deployed domain (*.onrender.com, Vercel, Netlify, custom domain),
+ *    AUTOMATICALLY routes to production backend 'https://gearly-login.onrender.com'.
+ *    Never defaults to localhost in a deployed environment!
+ */
+export const getAuthBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (envUrl && envUrl.trim() !== '') {
+    return envUrl.trim();
+  }
+
+  if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+      return 'http://localhost:8000';
+    }
+    return 'https://gearly-login.onrender.com';
+  }
+
+  return import.meta.env.PROD ? 'https://gearly-login.onrender.com' : 'http://localhost:8000';
+};
 
 const apiClient = axios.create({
-  baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to attach JWT
+// Dynamic BaseURL & JWT Interceptor
 apiClient.interceptors.request.use(
   (config) => {
+    config.baseURL = getAuthBaseUrl();
+
     const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -70,7 +94,7 @@ export const getCurrentUser = () => {
   };
 };
 
-// API Methods for Auth Microservice (:8000)
+// API Methods for Auth Microservice
 export const authApi = {
   signupUser: async (payload) => {
     return await apiClient.post('/signup_user', payload);
