@@ -1,16 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ShieldCheck, Lock, Activity, Zap, Wrench, Eye, EyeOff, 
-  AlertCircle, CheckCircle, ArrowRight, X 
+  ShieldCheck, Activity, Zap, Eye, EyeOff, 
+  AlertCircle, CheckCircle, ArrowRight, X, Store, Car
 } from 'lucide-react';
-import { authApi, setToken } from '../services/api';
+import { authApi, setToken, getToken } from '../services/api';
 
 export default function LandingAuth() {
   const [activeTab, setActiveTab] = useState('login'); // 'login' or 'signup'
-  const [loginRole, setLoginRole] = useState('user'); // 'user' or 'shopkeeper'
+  const [loginRole, setLoginRole] = useState(() => {
+    // Remember previous role preference or default to shopkeeper if last used
+    return localStorage.getItem('gearly_role') || 'user';
+  });
   const [signupRole, setSignupRole] = useState('user'); // 'user' or 'shopkeeper'
   const navigate = useNavigate();
+
+  // If already logged in with a valid token, auto-route to dashboard
+  useEffect(() => {
+    const existing = getToken();
+    if (existing) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   // Form states
   const [loginForm, setLoginForm] = useState({ username_or_email: '', password: '' });
@@ -27,7 +38,6 @@ export default function LandingAuth() {
   });
 
   const [loading, setLoading] = useState(false);
-  // feedback: { type: 'error' | 'success' | 'info', title?: string, message: string, isUserExists?: boolean } | null
   const [feedback, setFeedback] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -57,7 +67,7 @@ export default function LandingAuth() {
       rawMsg = err.message || defaultMsg;
     }
 
-    // Check if error indicates user/account already exists
+    // Check if error indicates account already exists
     const isUserExists = 
       /already\s*(exist|existed)/i.test(rawMsg) || 
       /duplicate/i.test(rawMsg) || 
@@ -66,7 +76,7 @@ export default function LandingAuth() {
     if (isUserExists) {
       return {
         title: 'Account Already Exists',
-        message: 'A user or shopkeeper with this phone number, email, or username is already registered. Please sign in instead.',
+        message: 'An account with this phone number, email, or username is already registered. Please sign in instead.',
         isUserExists: true,
       };
     }
@@ -83,27 +93,35 @@ export default function LandingAuth() {
     setLoading(true);
     setFeedback(null);
     try {
-      const res = loginRole === 'shopkeeper'
+      const isShop = loginRole === 'shopkeeper';
+      const res = isShop
         ? await authApi.loginShopkeeper(loginForm)
         : await authApi.loginUser(loginForm);
       
-      // Axum returns raw JSON string for JWT
       let token = res.data;
-      if (typeof token === 'string') {
-        setToken(token);
+      if (typeof token === 'string' && token.trim().length > 0) {
+        // Save token and explicit role
+        setToken(token, isShop ? 'shopkeeper' : 'customer');
         navigate('/dashboard');
       } else {
         const parsed = {
           title: 'Token Error',
-          message: 'Login succeeded but token format returned by server is invalid.',
+          message: 'Login succeeded but server returned an invalid token format.',
           isUserExists: false,
         };
         setFeedback({ type: 'error', ...parsed });
         showToast(parsed.message, 'error');
       }
     } catch (err) {
-      const parsed = parseApiError(err, 'Login failed. Please verify your credentials.');
-      setFeedback({ type: 'error', ...parsed });
+      const isShop = loginRole === 'shopkeeper';
+      const parsed = parseApiError(err, `Login failed for ${isShop ? 'Shopkeeper' : 'Customer'}. Verify your credentials.`);
+      
+      // Add smart role-switch suggestion if credentials failed
+      setFeedback({ 
+        type: 'error', 
+        ...parsed,
+        suggestAltRole: true
+      });
       showToast(parsed.message, 'error');
     } finally {
       setLoading(false);
@@ -138,7 +156,7 @@ export default function LandingAuth() {
         });
       }
 
-      // Switch back to login on success
+      // Seamlessly switch to login tab with the matching role
       setActiveTab('login');
       setLoginRole(signupRole);
       setLoginForm(prev => ({
@@ -147,11 +165,11 @@ export default function LandingAuth() {
       }));
       setFeedback({
         type: 'success',
-        title: 'Account Created Successfully!',
-        message: 'Your account has been registered. Please sign in with your password.',
+        title: `${signupRole === 'shopkeeper' ? 'Shopkeeper' : 'Customer'} Account Registered!`,
+        message: 'Your account has been created. Please enter your password to sign in.',
         isUserExists: false,
       });
-      showToast('Account created successfully! Please sign in.', 'success');
+      showToast('Account registered successfully! Please sign in.', 'success');
     } catch (err) {
       const parsed = parseApiError(err, 'Signup failed. Please check your details.');
       setFeedback({ type: 'error', ...parsed });
@@ -161,7 +179,6 @@ export default function LandingAuth() {
     }
   };
 
-  // Helper when user already exists: seamlessly switches to Login tab and pre-fills credentials
   const handleSwitchToLoginFromExistingUser = () => {
     setActiveTab('login');
     setLoginRole(signupRole);
@@ -172,58 +189,143 @@ export default function LandingAuth() {
     setFeedback({
       type: 'info',
       title: 'Sign In With Existing Account',
-      message: 'Your username or email has been pre-filled. Enter your password to access your account.',
+      message: 'Your credentials have been pre-filled. Enter your password to access your account.',
       isUserExists: false,
     });
   };
 
+  const toggleLoginRole = (targetRole) => {
+    setLoginRole(targetRole);
+    setFeedback(null);
+  };
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-dark)' }}>
       
-      {/* LEFT: Branding Section */}
-      <div style={{ flex: 1, padding: '4rem', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }} className="glass-panel">
+      {/* LEFT: Branding & Value Proposition Section */}
+      <div 
+        className="glass-panel"
+        style={{ 
+          flex: '1 1 50%', 
+          padding: '4rem', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          justifyContent: 'space-between',
+          position: 'relative', 
+          overflow: 'hidden',
+          borderRadius: 0,
+          borderRight: '1px solid var(--border-color)',
+          background: 'linear-gradient(145deg, rgba(16, 24, 40, 0.95) 0%, rgba(10, 14, 24, 0.98) 100%)'
+        }} 
+      >
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '4rem' }}>
-            <Wrench size={32} className="text-gradient" />
-            <h1 style={{ fontSize: '2rem', margin: 0, letterSpacing: '2px' }}>GEARLY</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '3.5rem' }}>
+            <div style={{ 
+              width: '46px', 
+              height: '46px', 
+              borderRadius: '14px', 
+              background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              boxShadow: '0 0 24px rgba(6, 182, 212, 0.5)'
+            }}>
+              <Car size={26} color="#ffffff" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: '2rem', margin: 0, letterSpacing: '2px', fontWeight: 800 }}>GEARLY</h1>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                Next-Gen Automotive Marketplace
+              </span>
+            </div>
           </div>
           
-          <h2 style={{ fontSize: '3.5rem', lineHeight: 1.1, marginBottom: '1.5rem', fontWeight: 700 }}>
-            Your gateway to the <span className="text-gradient">automotive parts marketplace.</span>
+          <h2 style={{ fontSize: '3.2rem', lineHeight: 1.15, marginBottom: '1.5rem', fontWeight: 800, letterSpacing: '-1px' }}>
+            Empowering <span className="text-gradient">auto merchants</span> and precision car owners.
           </h2>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '4rem' }}>
-            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', maxWidth: '400px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', lineHeight: 1.6, maxWidth: '520px', margin: '0 0 3rem 0' }}>
+            A unified automotive ecosystem connecting certified spare parts shopkeepers with car enthusiasts across verified OEM components.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '460px' }}>
+            <div className="glass-panel" style={{ padding: '1.2rem 1.4rem', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+              <Store className="text-gradient" size={24} />
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.95rem', color: '#ffffff' }}>Dedicated Shopkeeper Inventory Portal</strong>
+                <span className="text-muted" style={{ fontSize: '0.84rem' }}>Manage stock, OEM part numbers, and live marketplace distribution.</span>
+              </div>
+            </div>
+
+            <div className="glass-panel" style={{ padding: '1.2rem 1.4rem', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
               <ShieldCheck className="text-gradient" size={24} />
-              <div><strong style={{ display: 'block' }}>Secure authentication</strong><span className="text-muted" style={{ fontSize: '0.9rem' }}>End-to-end security</span></div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.95rem', color: '#ffffff' }}>Zero-Trust JWT Security</strong>
+                <span className="text-muted" style={{ fontSize: '0.84rem' }}>Role-based access control protected by high-throughput Rust Axum APIs.</span>
+              </div>
             </div>
-            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', maxWidth: '400px' }}>
-              <Lock className="text-gradient" size={24} />
-              <div><strong style={{ display: 'block' }}>JWT protected APIs</strong><span className="text-muted" style={{ fontSize: '0.9rem' }}>Axum middleware integration</span></div>
-            </div>
-            <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', maxWidth: '400px' }}>
+
+            <div className="glass-panel" style={{ padding: '1.2rem 1.4rem', display: 'flex', alignItems: 'center', gap: '1rem', border: '1px solid rgba(6, 182, 212, 0.25)' }}>
               <Zap className="text-gradient" size={24} />
-              <div><strong style={{ display: 'block' }}>Fast & reliable backend</strong><span className="text-muted" style={{ fontSize: '0.9rem' }}>Powered by Rust</span></div>
+              <div>
+                <strong style={{ display: 'block', fontSize: '0.95rem', color: '#ffffff' }}>Real-Time Microservices Architecture</strong>
+                <span className="text-muted" style={{ fontSize: '0.84rem' }}>Decoupled services for authentication, catalog, and RabbitMQ events.</span>
+              </div>
             </div>
           </div>
         </div>
+
+        <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          &copy; {new Date().getFullYear()} Gearly Automotive Systems &bull; Microservices Deployment Active
+        </div>
       </div>
 
-      {/* RIGHT: Auth Section */}
-      <div style={{ flex: 1, padding: '4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-dark)' }}>
-        <div className="glass-panel page-enter" style={{ width: '100%', maxWidth: '500px', padding: '2.5rem', position: 'relative' }}>
+      {/* RIGHT: High-Contrast Auth Section */}
+      <div style={{ flex: '1 1 50%', padding: '3.5rem 2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="glass-panel page-enter" style={{ 
+          width: '100%', 
+          maxWidth: '520px', 
+          padding: '2.5rem', 
+          position: 'relative',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.7)',
+          border: '1px solid rgba(6, 182, 212, 0.25)'
+        }}>
           
           {/* Tab Selector: Login vs Create Account */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.8rem' }}>
             <button 
+              id="tab-login"
               onClick={() => { setActiveTab('login'); setFeedback(null); }}
-              style={{ flex: 1, padding: '1rem', background: 'transparent', border: 'none', color: activeTab === 'login' ? 'white' : 'var(--text-muted)', borderBottom: activeTab === 'login' ? '2px solid var(--accent-primary)' : '2px solid transparent', cursor: 'pointer', fontWeight: 600, transition: 'var(--transition)', fontSize: '1rem' }}
+              style={{ 
+                flex: 1, 
+                padding: '0.9rem', 
+                background: 'transparent', 
+                border: 'none', 
+                color: activeTab === 'login' ? '#ffffff' : 'var(--text-muted)', 
+                borderBottom: activeTab === 'login' ? '2px solid var(--accent-cyan)' : '2px solid transparent', 
+                cursor: 'pointer', 
+                fontWeight: 700, 
+                fontSize: '1rem',
+                transition: 'all 0.2s ease'
+              }}
             >
-              Login
+              Sign In
             </button>
             <button 
+              id="tab-signup"
               onClick={() => { setActiveTab('signup'); setFeedback(null); }}
-              style={{ flex: 1, padding: '1rem', background: 'transparent', border: 'none', color: activeTab === 'signup' ? 'white' : 'var(--text-muted)', borderBottom: activeTab === 'signup' ? '2px solid var(--accent-primary)' : '2px solid transparent', cursor: 'pointer', fontWeight: 600, transition: 'var(--transition)', fontSize: '1rem' }}
+              style={{ 
+                flex: 1, 
+                padding: '0.9rem', 
+                background: 'transparent', 
+                border: 'none', 
+                color: activeTab === 'signup' ? '#ffffff' : 'var(--text-muted)', 
+                borderBottom: activeTab === 'signup' ? '2px solid var(--accent-cyan)' : '2px solid transparent', 
+                cursor: 'pointer', 
+                fontWeight: 700, 
+                fontSize: '1rem',
+                transition: 'all 0.2s ease'
+              }}
             >
               Create Account
             </button>
@@ -264,7 +366,7 @@ export default function LandingAuth() {
                 <button 
                   onClick={() => setFeedback(null)} 
                   style={{ background: 'transparent', border: 'none', color: 'inherit', opacity: 0.7, cursor: 'pointer', padding: '2px' }}
-                  title="Dismiss notification"
+                  title="Dismiss"
                 >
                   <X size={18} />
                 </button>
@@ -284,115 +386,229 @@ export default function LandingAuth() {
                   </button>
                 </div>
               )}
+
+              {/* Smart Fallback Hint if Login Role might be mismatched */}
+              {feedback.suggestAltRole && activeTab === 'login' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.6rem', borderTop: '1px solid rgba(239, 68, 68, 0.3)', marginTop: '0.3rem', fontSize: '0.82rem' }}>
+                  <span style={{ opacity: 0.9 }}>
+                    Registered under the other account type?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleLoginRole(loginRole === 'shopkeeper' ? 'user' : 'shopkeeper')}
+                    style={{ 
+                      background: 'rgba(255, 255, 255, 0.15)', 
+                      border: '1px solid rgba(255, 255, 255, 0.3)', 
+                      color: '#ffffff', 
+                      padding: '3px 8px', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer',
+                      fontWeight: 700
+                    }}
+                  >
+                    Switch to {loginRole === 'shopkeeper' ? 'Customer' : 'Shopkeeper'} Login &rarr;
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* LOGIN FORM */}
+          {/* ================================================================ */}
+          {/* TAB 1: LOGIN FORM                                                */}
+          {/* ================================================================ */}
           {activeTab === 'login' ? (
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.25rem' }}>
-                <div 
-                  onClick={() => setLoginRole('user')}
-                  className={`glass-panel ${loginRole === 'user' ? 'btn-primary' : ''}`}
-                  style={{ flex: 1, padding: '0.85rem', textAlign: 'center', cursor: 'pointer', transition: 'var(--transition)', border: loginRole === 'user' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)' }}
-                >
-                  <div style={{ fontSize: '1.3rem', marginBottom: '0.3rem' }}>👤</div>
-                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Customer</strong>
-                  <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>Login as user</span>
+              
+              {/* Prominent High-Contrast Role Selector */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Select Access Portal:
+                  </span>
+                  <span style={{ 
+                    fontSize: '0.74rem', 
+                    color: loginRole === 'shopkeeper' ? '#60a5fa' : '#34d399', 
+                    fontWeight: 800,
+                    textTransform: 'uppercase'
+                  }}>
+                    {loginRole === 'shopkeeper' ? '🏪 Merchant Inventory Mode' : '👤 Public Buyer Mode'}
+                  </span>
                 </div>
-                <div 
-                  onClick={() => setLoginRole('shopkeeper')}
-                  className={`glass-panel ${loginRole === 'shopkeeper' ? 'btn-primary' : ''}`}
-                  style={{ flex: 1, padding: '0.85rem', textAlign: 'center', cursor: 'pointer', transition: 'var(--transition)', border: loginRole === 'shopkeeper' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)' }}
-                >
-                  <div style={{ fontSize: '1.3rem', marginBottom: '0.3rem' }}>🏪</div>
-                  <strong style={{ display: 'block', fontSize: '0.9rem' }}>Shopkeeper</strong>
-                  <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>Manage inventory</span>
+
+                <div style={{ display: 'flex', gap: '0.8rem' }}>
+                  <div 
+                    id="login-role-customer"
+                    onClick={() => toggleLoginRole('user')}
+                    className={`glass-panel ${loginRole === 'user' ? 'btn-emerald-active' : ''}`}
+                    style={{ 
+                      flex: 1, 
+                      padding: '1rem 0.8rem', 
+                      textAlign: 'center', 
+                      cursor: 'pointer', 
+                      transition: 'all 0.2s ease', 
+                      borderRadius: '10px',
+                      border: loginRole === 'user' ? '2px solid #10b981' : '1px solid var(--border-color)',
+                      background: loginRole === 'user' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.02)'
+                    }}
+                  >
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>👤</div>
+                    <strong style={{ display: 'block', fontSize: '0.92rem', color: loginRole === 'user' ? '#34d399' : '#ffffff' }}>Customer</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Buy parts / Browse</span>
+                  </div>
+
+                  <div 
+                    id="login-role-shopkeeper"
+                    onClick={() => toggleLoginRole('shopkeeper')}
+                    className={`glass-panel ${loginRole === 'shopkeeper' ? 'btn-blue-active' : ''}`}
+                    style={{ 
+                      flex: 1, 
+                      padding: '1rem 0.8rem', 
+                      textAlign: 'center', 
+                      cursor: 'pointer', 
+                      transition: 'all 0.2s ease', 
+                      borderRadius: '10px',
+                      border: loginRole === 'shopkeeper' ? '2px solid #3b82f6' : '1px solid var(--border-color)',
+                      background: loginRole === 'shopkeeper' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.02)'
+                    }}
+                  >
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>🏪</div>
+                    <strong style={{ display: 'block', fontSize: '0.92rem', color: loginRole === 'shopkeeper' ? '#60a5fa' : '#ffffff' }}>Shopkeeper</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Manage store stock</span>
+                  </div>
                 </div>
               </div>
 
               <div>
                 <label>Email or Username</label>
                 <input 
-                  type="text" required 
-                  value={loginForm.username_or_email} onChange={(e) => setLoginForm({...loginForm, username_or_email: e.target.value})}
-                  placeholder="name@example.com or username"
+                  id="login-username"
+                  type="text" 
+                  required 
+                  value={loginForm.username_or_email} 
+                  onChange={(e) => setLoginForm({...loginForm, username_or_email: e.target.value})}
+                  placeholder="e.g. arunjot or merchant@gearly.in"
                 />
               </div>
 
               <div style={{ position: 'relative' }}>
                 <label>Password</label>
                 <input 
-                  type={showPassword ? "text" : "password"} required 
-                  value={loginForm.password} onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                  id="login-password"
+                  type={showPassword ? "text" : "password"} 
+                  required 
+                  value={loginForm.password} 
+                  onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
                   placeholder="••••••••"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '1rem', top: '2.2rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)} 
+                  style={{ position: 'absolute', right: '1rem', top: '2.2rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
 
-              {/* Inline Error Notice above submit button if error is active */}
-              {feedback && feedback.type === 'error' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f87171', fontSize: '0.82rem', background: 'rgba(239, 68, 68, 0.1)', padding: '0.5rem 0.8rem', borderRadius: '7px', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
-                  <AlertCircle size={15} style={{ flexShrink: 0 }} />
-                  <span>{feedback.message}</span>
-                </div>
-              )}
-
-              <button type="submit" className="btn btn-primary" disabled={loading} style={{ marginTop: '0.5rem' }}>
-                {loading ? <span className="animate-spin"><Activity size={18} /></span> : 'Sign In'}
+              <button 
+                id="submit-login-btn"
+                type="submit" 
+                className="btn btn-primary" 
+                disabled={loading} 
+                style={{ 
+                  marginTop: '0.5rem', 
+                  padding: '0.85rem',
+                  fontSize: '0.96rem',
+                  fontWeight: 700,
+                  background: loginRole === 'shopkeeper' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : 'linear-gradient(135deg, #059669, #10b981)'
+                }}
+              >
+                {loading ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Activity size={18} className="animate-spin" />
+                    Authenticating {loginRole === 'shopkeeper' ? 'Shopkeeper' : 'Customer'}...
+                  </span>
+                ) : (
+                  `Sign In as ${loginRole === 'shopkeeper' ? 'Shopkeeper (Merchant)' : 'Customer (Buyer)'}`
+                )}
               </button>
             </form>
           ) : (
-            /* SIGNUP FORM */
+            /* ================================================================ */
+            /* TAB 2: SIGNUP FORM                                               */
+            /* ================================================================ */
             <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem' }}>
-                <div 
-                  onClick={() => setSignupRole('user')}
-                  className={`glass-panel ${signupRole === 'user' ? 'btn-primary' : ''}`}
-                  style={{ flex: 1, padding: '1rem', textAlign: 'center', cursor: 'pointer', transition: 'var(--transition)', border: signupRole === 'user' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)' }}
-                >
-                  <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>👤</div>
-                  <strong style={{ display: 'block' }}>Customer</strong>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Buy car parts</span>
-                </div>
-                <div 
-                  onClick={() => setSignupRole('shopkeeper')}
-                  className={`glass-panel ${signupRole === 'shopkeeper' ? 'btn-primary' : ''}`}
-                  style={{ flex: 1, padding: '1rem', textAlign: 'center', cursor: 'pointer', transition: 'var(--transition)', border: signupRole === 'shopkeeper' ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)' }}
-                >
-                  <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🏪</div>
-                  <strong style={{ display: 'block' }}>Shopkeeper</strong>
-                  <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Sell car parts</span>
+              
+              {/* Role Selection for Account Registration */}
+              <div>
+                <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '0.5rem' }}>
+                  Account Type:
+                </span>
+                <div style={{ display: 'flex', gap: '0.8rem' }}>
+                  <div 
+                    id="signup-role-customer"
+                    onClick={() => setSignupRole('user')}
+                    style={{ 
+                      flex: 1, 
+                      padding: '1rem 0.8rem', 
+                      textAlign: 'center', 
+                      cursor: 'pointer', 
+                      transition: 'all 0.2s ease', 
+                      borderRadius: '10px',
+                      border: signupRole === 'user' ? '2px solid #10b981' : '1px solid var(--border-color)',
+                      background: signupRole === 'user' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.02)'
+                    }}
+                  >
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>👤</div>
+                    <strong style={{ display: 'block', color: signupRole === 'user' ? '#34d399' : '#ffffff' }}>Customer</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Buy car parts</span>
+                  </div>
+
+                  <div 
+                    id="signup-role-shopkeeper"
+                    onClick={() => setSignupRole('shopkeeper')}
+                    style={{ 
+                      flex: 1, 
+                      padding: '1rem 0.8rem', 
+                      textAlign: 'center', 
+                      cursor: 'pointer', 
+                      transition: 'all 0.2s ease', 
+                      borderRadius: '10px',
+                      border: signupRole === 'shopkeeper' ? '2px solid #3b82f6' : '1px solid var(--border-color)',
+                      background: signupRole === 'shopkeeper' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.02)'
+                    }}
+                  >
+                    <div style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>🏪</div>
+                    <strong style={{ display: 'block', color: signupRole === 'shopkeeper' ? '#60a5fa' : '#ffffff' }}>Shopkeeper</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sell car parts</span>
+                  </div>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label>First Name</label>
-                  <input type="text" value={signupForm.first_name} onChange={(e) => setSignupForm({...signupForm, first_name: e.target.value})} placeholder="John" required={signupRole === 'user'} />
+                  <input type="text" value={signupForm.first_name} onChange={(e) => setSignupForm({...signupForm, first_name: e.target.value})} placeholder="e.g. Rahul" required={signupRole === 'user'} />
                 </div>
                 <div>
                   <label>Last Name *</label>
-                  <input type="text" required value={signupForm.last_name} onChange={(e) => setSignupForm({...signupForm, last_name: e.target.value})} placeholder="Doe" />
+                  <input type="text" required value={signupForm.last_name} onChange={(e) => setSignupForm({...signupForm, last_name: e.target.value})} placeholder="e.g. Sharma" />
                 </div>
               </div>
 
               {signupRole === 'shopkeeper' && (
                 <>
                   <div>
-                    <label>Shop Name</label>
-                    <input type="text" value={signupForm.shop_name} onChange={(e) => setSignupForm({...signupForm, shop_name: e.target.value})} placeholder="e.g. Apex Auto Spares" />
+                    <label>Shop / Business Name *</label>
+                    <input type="text" required value={signupForm.shop_name} onChange={(e) => setSignupForm({...signupForm, shop_name: e.target.value})} placeholder="e.g. Apex Auto Spares" />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <div>
                       <label>Shop Address</label>
-                      <input type="text" value={signupForm.shop_address} onChange={(e) => setSignupForm({...signupForm, shop_address: e.target.value})} placeholder="123 Main St" />
+                      <input type="text" value={signupForm.shop_address} onChange={(e) => setSignupForm({...signupForm, shop_address: e.target.value})} placeholder="e.g. Shop 14, Auto Market" />
                     </div>
                     <div>
                       <label>City</label>
-                      <input type="text" value={signupForm.city} onChange={(e) => setSignupForm({...signupForm, city: e.target.value})} placeholder="Mohali" />
+                      <input type="text" value={signupForm.city} onChange={(e) => setSignupForm({...signupForm, city: e.target.value})} placeholder="e.g. Mohali" />
                     </div>
                   </div>
                 </>
@@ -401,7 +617,7 @@ export default function LandingAuth() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
                   <label>Username *</label>
-                  <input type="text" required value={signupForm.username} onChange={(e) => setSignupForm({...signupForm, username: e.target.value})} placeholder="username" />
+                  <input type="text" required value={signupForm.username} onChange={(e) => setSignupForm({...signupForm, username: e.target.value})} placeholder="unique_user" />
                 </div>
                 <div>
                   <label>Phone Number (10 digits) *</label>
@@ -410,7 +626,7 @@ export default function LandingAuth() {
               </div>
 
               <div>
-                <label>Email *</label>
+                <label>Email Address *</label>
                 <input type="email" required value={signupForm.email} onChange={(e) => setSignupForm({...signupForm, email: e.target.value})} placeholder="name@example.com" />
               </div>
 
@@ -422,27 +638,19 @@ export default function LandingAuth() {
                 </button>
               </div>
 
-              {/* Inline Error Notice above submit button if error is active */}
-              {feedback && feedback.type === 'error' && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', color: '#f87171', fontSize: '0.84rem', background: 'rgba(239, 68, 68, 0.12)', padding: '0.7rem 0.9rem', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.35)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                    <span>{feedback.message}</span>
-                  </div>
-                  {feedback.isUserExists && (
-                    <button
-                      type="button"
-                      onClick={handleSwitchToLoginFromExistingUser}
-                      style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', whiteSpace: 'nowrap', textDecoration: 'underline' }}
-                    >
-                      Sign In &rarr;
-                    </button>
-                  )}
-                </div>
-              )}
-
-              <button type="submit" className="btn btn-primary" disabled={loading} style={{ marginTop: '0.5rem' }}>
-                {loading ? <span className="animate-spin"><Activity size={18} /></span> : 'Create Account'}
+              <button 
+                id="submit-signup-btn"
+                type="submit" 
+                className="btn btn-primary" 
+                disabled={loading} 
+                style={{ 
+                  marginTop: '0.5rem', 
+                  padding: '0.85rem',
+                  fontWeight: 700,
+                  background: signupRole === 'shopkeeper' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : 'linear-gradient(135deg, #059669, #10b981)'
+                }}
+              >
+                {loading ? <span className="animate-spin"><Activity size={18} /></span> : `Register as ${signupRole === 'shopkeeper' ? 'Shopkeeper' : 'Customer'}`}
               </button>
             </form>
           )}

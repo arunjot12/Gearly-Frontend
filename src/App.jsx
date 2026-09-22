@@ -2,14 +2,22 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LandingAuth from './pages/LandingAuth';
 import Dashboard from './pages/Dashboard';
-import { getToken } from './services/api';
+import { getToken, clearToken } from './services/api';
+import { decodeJwt, isTokenExpired } from './utils/jwt';
 
-// Protected Route Component
+// Protected Route Component with Expiry Verification
 const ProtectedRoute = ({ children }) => {
   const token = getToken();
   if (!token) {
     return <Navigate to="/" replace />;
   }
+
+  const claims = decodeJwt(token);
+  if (claims && isTokenExpired(claims)) {
+    clearToken();
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 
