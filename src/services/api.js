@@ -50,7 +50,7 @@ apiClient.interceptors.request.use(
 
 export const setToken = (rawToken, explicitRole = null) => {
   const token = sanitizeToken(rawToken);
-  if (!token) return;
+  if (!token || !token.includes('.')) return;
 
   localStorage.setItem('jwt_token', token);
   localStorage.setItem('gearly_token', token);
@@ -63,7 +63,11 @@ export const setToken = (rawToken, explicitRole = null) => {
 
 export const getToken = () => {
   const raw = localStorage.getItem('jwt_token') || localStorage.getItem('gearly_token');
-  return sanitizeToken(raw);
+  const token = sanitizeToken(raw);
+  if (token && token.includes('.')) {
+    return token;
+  }
+  return '';
 };
 
 export const getStoredRole = () => {

@@ -1,35 +1,60 @@
 /**
  * Safe, RFC-compliant JWT decoder and role normalizer for the Gearly ecosystem.
- * Handles unpadded base64url strings, UTF-8 character encoding, and role casing variations.
+ * Handles unpadded base64url strings, UTF-8 character encoding, quotes, and role casing variations.
+ * Guaranteed never to throw uncaught InvalidCharacterError.
  */
 
 export function sanitizeToken(rawToken) {
   if (!rawToken || typeof rawToken !== 'string') return '';
-  // Strip surrounding quotes or whitespace that may be introduced during JSON transfer or localStorage
-  return rawToken.replace(/^["']|["']$/g, '').trim();
+  let clean = rawToken.trim();
+  
+  // Recursively strip outer quotes that may be introduced during JSON transfer or localStorage
+  while (
+    (clean.startsWith('"') && clean.endsWith('"')) ||
+    (clean.startsWith("'") && clean.endsWith("'"))
+  ) {
+    clean = clean.slice(1, -1).trim();
+  }
+  return clean;
 }
 
 export function decodeJwt(token) {
-  const clean = sanitizeToken(token);
+  let clean = sanitizeToken(token);
   if (!clean) return null;
 
   try {
+    // Strip "Bearer " prefix if present
+    if (clean.toLowerCase().startsWith('bearer ')) {
+      clean = clean.slice(7).trim();
+    }
+
     const parts = clean.split('.');
     if (parts.length < 2) return null;
 
-    let base64Url = parts[1];
-    // Convert base64url to base64
+    // Filter payload slice to strict base64url alphabet (strip any quotes or invalid characters)
+    let base64Url = parts[1].replace(/[^A-Za-z0-9\-_]/g, '');
+    if (!base64Url) return null;
+
+    // A base64 block with remainder 1 is mathematically impossible to decode; return null safely
+    if (base64Url.length % 4 === 1) {
+      return null;
+    }
+
+    // Convert base64url to standard base64
     let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
 
-    // Add necessary base64 '=' padding if missing
-    while (base64.length % 4 !== 0) {
+    // Add required '=' padding strictly for remainder 2 or 3
+    const remainder = base64.length % 4;
+    if (remainder === 2) {
+      base64 += '==';
+    } else if (remainder === 3) {
       base64 += '=';
     }
 
-    // Decode base64 to binary string
+    // Decode base64 to binary string safely
     const binaryStr = window.atob(base64);
 
-    // Decode UTF-8 percent-encoded bytes to handle special characters properly
+    // Decode UTF-8 percent-encoded bytes to handle international characters properly
     const jsonPayload = decodeURIComponent(
       binaryStr
         .split('')
@@ -38,9 +63,9 @@ export function decodeJwt(token) {
     );
 
     const parsed = JSON.parse(jsonPayload);
-    return parsed;
-  } catch (err) {
-    console.error('Failed to parse JWT payload:', err);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    // Return null safely without throwing uncaught DOM exceptions
     return null;
   }
 }
@@ -52,7 +77,6 @@ export function decodeJwt(token) {
 export function extractRole(claims, fallbackRole = null) {
   if (!claims && !fallbackRole) return 'customer';
 
-  // Check possible role fields in token
   let rawRole =
     claims?.roles ||
     claims?.role ||
